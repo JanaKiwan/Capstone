@@ -24,19 +24,16 @@ def load_data(file_path):
 
 def preprocess_features(features, model):
     """
-    Preprocesses and validates the feature set to ensure compatibility with the model.
+    Ensures features match the model's expected input.
     """
-    # Ensure column order matches the model's expected input
     if hasattr(model, "feature_names_in_"):
         expected_columns = model.feature_names_in_
-        features = features.reindex(columns=expected_columns, fill_value=0)
-    
-    # Convert non-numeric columns to numeric if necessary
-    for col in features.select_dtypes(include=['object']).columns:
-        features[col] = pd.to_numeric(features[col], errors='coerce')
-    
-    # Handle missing values (default to 0)
-    features = features.fillna(0)
+        # Add missing columns with default value 0
+        for col in expected_columns:
+            if col not in features.columns:
+                features[col] = 0
+        # Drop extra columns
+        features = features[expected_columns]
     return features
 
 def make_prediction(model, features, threshold):
@@ -110,7 +107,7 @@ features = customer_row.drop(columns=drop_columns, errors="ignore")
 
 # Prediction
 if st.button("Predict"):
-    features = preprocess_features(features, model)  # Preprocess the features
+    features = preprocess_features(features, model)  # Preprocess features
     prediction, proba = make_prediction(model, features, metrics.get('best_threshold', 0.5))
     prediction_result = "Yes" if prediction[0] else "No"
     st.write(f"**Prediction Outcome:** {prediction_result}")
