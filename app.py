@@ -12,19 +12,20 @@ def load_model(file_path):
     """Loads the saved model."""
     return joblib.load(file_path)
 
-@st.cache
+@st.cache_data
 def load_metrics(file_path):
     """Loads the saved metrics."""
     return np.load(file_path, allow_pickle=True).item()
 
-@st.cache
+@st.cache_data
 def load_data(file_path):
     """Loads the customer dataset."""
     return pd.read_excel(file_path)
 
-# Prediction function
 def make_prediction(model, features, threshold):
-    """Generates the prediction and probability."""
+    """
+    Generates the prediction and probability.
+    """
     proba = model.predict_proba(features)[:, 1]
     prediction = proba >= threshold
     return prediction, proba
@@ -40,11 +41,11 @@ st.title("Customer Purchase Prediction App")
 data_file = "customer_transformed_data_with_cltv.xlsx"
 customer_data = load_data(data_file)
 
-# Display Dataset Preview
+# Sidebar: Display Dataset Preview
 st.sidebar.header("Dataset Preview")
 st.sidebar.dataframe(customer_data.head())
 
-# Model Selection
+# Sidebar: Model Selection
 st.sidebar.header("Select Machine Learning Model")
 model_options = {
     "Lasso Logistic Regression": {
@@ -72,24 +73,27 @@ selected_model_details = model_options[selected_model_name]
 model = load_model(selected_model_details["model_path"])
 metrics = load_metrics(selected_model_details["metrics_path"])
 
-# Display Model Metrics
+# Sidebar: Display Model Metrics
 st.sidebar.header("Model Metrics")
-st.sidebar.write(f"**Best Threshold:** {metrics['best_threshold']:.2f}")
-st.sidebar.write(f"**ROC AUC (Test):** {metrics['roc_auc_test']:.2f}")
-st.sidebar.write(f"**Precision-Recall AUC (Test):** {metrics['pr_auc_test']:.2f}")
+if metrics:
+    st.sidebar.write(f"**Best Threshold:** {metrics.get('best_threshold', 'N/A'):.2f}")
+    st.sidebar.write(f"**ROC AUC (Test):** {metrics.get('roc_auc_test', 'N/A'):.2f}")
+    st.sidebar.write(f"**Precision-Recall AUC (Test):** {metrics.get('pr_auc_test', 'N/A'):.2f}")
+else:
+    st.sidebar.write("Metrics not available for this model.")
 
-# Select Customer
+# Main: Predict Customer Purchase Likelihood
 st.header("Predict Customer Purchase Likelihood")
 customer_id = st.selectbox("Select Customer", customer_data["CUSTOMERNAME"].unique())
 customer_row = customer_data[customer_data["CUSTOMERNAME"] == customer_id]
 
-# Drop columns not needed for prediction
+# Prepare Features
 drop_columns = ["CUSTOMERNAME", "Purchase Probability"]
 features = customer_row.drop(columns=drop_columns, errors="ignore")
 
 # Prediction
 if st.button("Predict"):
-    prediction, proba = make_prediction(model, features, metrics['best_threshold'])
+    prediction, proba = make_prediction(model, features, metrics.get('best_threshold', 0.5))
     prediction_result = "Yes" if prediction[0] else "No"
     st.write(f"**Prediction Outcome:** {prediction_result}")
     st.write(f"**Likelihood of Purchase:** {proba[0] * 100:.2f}%")
